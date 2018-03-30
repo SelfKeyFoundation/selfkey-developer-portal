@@ -5,21 +5,72 @@
 		<link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
 		<link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet" integrity="sha384-wvfXpqpZZVQGK6TAh5PVlGOfQNHSoD2xbE+QkPxCAFlNEevoEH3Sl0sibVcOQVnN" crossorigin="anonymous">    
 		<link href="https://fonts.googleapis.com/css?family=Montserrat:300,400,700" rel="stylesheet" type="text/css">
+		<script src="https://cdn.rawgit.com/google/code-prettify/master/loader/run_prettify.js"></script>
+		<link rel="stylesheet" type="text/css" href="https://rawgit.com/google/code-prettify/master/styles/sons-of-obsidian.css">
 		<link href="css/styles.css" rel="stylesheet">
 	</head>
 	<body style="background-color: #112f38;">
-		<div class="container text-center">
+		<div class="container">
 			<div class="row">
 				<div class="col-md-12">
-					<h1><img src="img/logo.png"><br>Developer Portal</h1>
+					<div class="text-center">
+						<h1><img src="img/logo.png"><br>Developer Portal</h1>
+					</div>
 					<hr>
 					<h3><em>Login with SelfKey</em></h3>
-					<br>
-					<button type="button" class="btn btn-info btn-lg" data-toggle="modal" data-target="#myModal">
-						<img src="img/48x48.png">&nbsp;&nbsp;Download Now
-					</button>
+					<p>We provide a JavaScript client library and a small code snippet which embeds the Login with SelfKey button on your website. All you need to do is supply the URL of an API endpoint that will receive the signed login request once the user approves the login.</p>
+					<h4>Here’s an example LWS client library snippet:</h4>
+					<pre class="prettyprint lang-js linenums">
+	
+	< script src="/scripts/lws-client.min.js" >< /script >
+	< script >
+	   window.lwsInit({
+	       endpoint: '/api/v1/auth/selfkey',
+	       stakedAccess: 1000,
+	       identityRequest: [
+	           'first_name',
+	           'last_name',
+	           'email'
+	       ]
+	   });
+	< /script >
+					</pre>
+					<hr>
+					<p>Our server module handles verifying the signature on the login request and checking the validity of any supplied identity claims against the blockchain. If a participating site has specified a Staked Access threshold the server library also verifies the user’s staked KEY meets the requirement.
+					Our reference server implementation is supplied as a Passport.js Authentication Strategy for NodeJS.</p>
+					<h4>Here’s an example of the server implementation, assuming an Express-like web server:</h4>
+					<pre class="prettyprint lang-js linenums">
+						
+	const mongoose = require('mongoose');
+	const passport = require('passport');
+	const { SelfKeyStrategy } = require('passport-selfkey');
+	const User = mongoose.model('user');
+	passport.use('selfkey', new SelfKeyStrategy({
+	   stakedAccess: 1000
+	}, async (publicKey, identity, done) => {
+	   try {
+	       const user = await User.findOneAndUpdate({ publicKey }, identity, {
+	           upsert: true,
+	           new: true
+	       });
+	       done(null, user);
+	   } catch (e) {
+	       done(e);
+	   }
+	}));
+	app.get('/api/v1/auth/selfkey', passport.authenticate('selfkey'));
+	app.post('/api/v1/auth/selfkey', passport.authenticate('selfkey', {
+	   successRedirect: '/',
+	   failureRedirect: '/login'
+	}));
+					</pre>
+					<strong>Libraries for other languages or frameworks will be developed on request.</strong>
 				</div>
 			</div>
+			<hr>
+			<br><br>
+			<p class="text-center">Copyright © 2018 - SelfKey Foundation - All Rights Reserved</p>
+			<br><br>
 		</div>
 
 		<div class="modal fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">

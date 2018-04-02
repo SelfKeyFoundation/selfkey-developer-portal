@@ -18,6 +18,55 @@
 					</div>
 					<hr>
 					<h3><em>Login with SelfKey</em></h3>
+					<p>Our server module handles verifying the signature on the login request and checking the validity of any supplied identity claims against the blockchain. If a participating site has specified a Staked Access threshold the server library also verifies the user’s staked KEY meets the requirement.
+					Our reference server implementation is supplied as a Passport.js Authentication Strategy for NodeJS.</p>
+					<h4>Here is an example of the server implementation, assuming an Express-like web server:</h4>
+					<pre class="prettyprint lang-js linenums">
+						
+	const 
+		express = require('express')
+		router = express()
+		User = require('../models/user')
+		selfkey = require('selfkey.js')
+
+	// blank endpoint to check connection is up
+	router.get('/auth/selfkey/test', (req, res) => res.status(200).json({ message: 'Login with SelfKey Server' }))
+
+	// begin the authentication process save blank user object with nonce return nonce for IDW signature
+	router.get('/auth/selfkey/init', (req, res) => {
+		// call nonce generator and save the nonce
+		const theNonce = selfkey.nonce(256)
+		// create a blank user object with the nonce
+		User.create({nonce: theNonce}, err => {
+			// return the nonce back to the extension
+			err ? res.status(500).json({message: err}) : res.status(200).json({nonce: theNonce})
+		})
+	})
+
+	// verify the signature against the nonce and public key
+	router.get('/auth/selfkey/verify', (req, res) => {
+		// call the verify signature function from selfkey.js
+		selfkey.verifySignaturePromise(req.query.nonce, req.query.signature, req.query.pubKey)
+			.then(verify => {
+				// if verify is true, the signature resolved to the correct public key
+				if (verify) res.status(200).json({redirectUrl: process.env.SK_SUCCESS_URL}) 
+			})
+			.catch(e => res.status(e.status || 500).json({message: e.msg}))
+	})
+
+	module.exports = router
+					</pre>
+					<hr>
+					<h3>selfkey.js</h3>
+					<br>
+					<a href="https://github.com/altninja/selfkey.js" class="btn btn-info btn-lg">
+						<i class="fa fa-github"></i>&nbsp;&nbsp;selfkey.js on Github
+					</a>
+					&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+					<a href="https://npm.com/~altninja/selfkey.js" class="btn btn-info btn-lg">
+						<i class="fa fa-file-code-o"></i>&nbsp;&nbsp;selfkey.js on NPM
+					</a>
+					<br><br>
 					<p>We provide a JavaScript client library and a small code snippet which embeds the Login with SelfKey button on your website. All you need to do is supply the URL of an API endpoint that will receive the signed login request once the user approves the login.</p>
 					<h4>Here’s an example LWS client library snippet:</h4>
 					<pre class="prettyprint lang-js linenums">
@@ -36,33 +85,43 @@
 	< /script >
 					</pre>
 					<hr>
-					<p>Our server module handles verifying the signature on the login request and checking the validity of any supplied identity claims against the blockchain. If a participating site has specified a Staked Access threshold the server library also verifies the user’s staked KEY meets the requirement.
-					Our reference server implementation is supplied as a Passport.js Authentication Strategy for NodeJS.</p>
-					<h4>Here’s an example of the server implementation, assuming an Express-like web server:</h4>
+
+					<h3>Passport.js Integration</h3>
+										<br>
+					<a href="https://github.com/altninja/selfkey" class="btn btn-info btn-lg">
+						<i class="fa fa-github"></i>&nbsp;&nbsp;passport-selfkey on Github
+					</a>
+					&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+					<a href="https://npm.com/~altninja/passport-selfkey" class="btn btn-info btn-lg">
+						<i class="fa fa-file-code-o"></i>&nbsp;&nbsp;passport-selfkey on NPM
+					</a>
+					<br><br>
+					<p>The Login with SelfKey passport strategy authenticates users using a nonce, signature and public key.  You will need to include the <a href="https://github.com/altninja/selfkey.js" target="_blank">selfkey.js library</a> to perform the signature verification.  This strategy requires a <em>verify</em> callback, which accepts these credentials and calls <em>done</em> providing a user. Use <em>passport.authenticate()</em>, specifying the <em>'selfkey'</em> strategy, to authenticate requests. For example, as route middleware in an Express application:</p>
 					<pre class="prettyprint lang-js linenums">
-						
-	const mongoose = require('mongoose');
-	const passport = require('passport');
-	const { SelfKeyStrategy } = require('passport-selfkey');
-	const User = mongoose.model('user');
-	passport.use('selfkey', new SelfKeyStrategy({
-	   stakedAccess: 1000
-	}, async (publicKey, identity, done) => {
-	   try {
-	       const user = await User.findOneAndUpdate({ publicKey }, identity, {
-	           upsert: true,
-	           new: true
-	       });
-	       done(null, user);
-	   } catch (e) {
-	       done(e);
-	   }
-	}));
-	app.get('/api/v1/auth/selfkey', passport.authenticate('selfkey'));
-	app.post('/api/v1/auth/selfkey', passport.authenticate('selfkey', {
-	   successRedirect: '/',
-	   failureRedirect: '/login'
-	}));
+	
+	const selfkey = require('selfkey.js')
+	const SelfKeyStrategy = require('passport-selfkey').Strategy
+
+	/**
+	 * Login with SelfKey Passport Config
+	 */
+	passport.use(new SelfKeyStrategy((nonce, signature, pubKey, done) => {
+	  User.findOne({nonce: nonce}, (err, user) => {
+	    if (err) return done(err)
+	    if (!user) return done(null, false, {msg: 'Nonce not found'})
+	    var match = selfkey.verifySignature(nonce, signature, pubKey)
+	    if (match) return done(null, user)
+	    return done(null, false, {msg: 'Invalid credentials'})
+	  })
+	}))
+
+	/**
+	 * Login with SelfKey Example Authenticated Route Usage
+	 */
+	router.get('/auth/selfkey', 
+		passport.authenticate('selfkey', { failureRedirect: '/signup' }), (req, res) => {
+	    	res.redirect('/success')
+	})
 					</pre>
 					<strong>Libraries for other languages or frameworks will be developed on request.</strong>
 				</div>
@@ -100,3 +159,35 @@
 		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
 	</body>
 </html>
+
+#### Configure Strategy
+
+The Login with SelfKey strategy authenticates users using a nonce, signature and public key.  You will need to include the [selfkey.js library](https://github.com/altninja/selfkey.js) to perform the signature verification.  This strategy requires a `verify` callback, which accepts these credentials and calls `done` providing a user.
+
+```js
+const selfkey = require('selfkey.js')
+const SelfKeyStrategy = require('passport-selfkey').Strategy
+
+/**
+ * Login with SelfKey Passport Config
+ */
+passport.use(new SelfKeyStrategy((nonce, signature, pubKey, done) => {
+  User.findOne({nonce: nonce}, (err, user) => {
+    if (err) return done(err)
+    if (!user) return done(null, false, {msg: 'Nonce not found'})
+    var match = selfkey.verifySignature(nonce, signature, pubKey)
+    if (match) return done(null, user)
+    return done(null, false, {msg: 'Invalid Credentials'})
+  })
+}))
+```
+
+#### Authenticate Requests
+
+Use `passport.authenticate()`, specifying the `'selfkey'` strategy, to authenticate requests. For example, as route middleware in an [Express](http://expressjs.com/) application:
+
+```js
+  router.get('/auth/selfkey', passport.authenticate('selfkey', { failureRedirect: '/signup' }), (req, res) => {
+    res.redirect('/success')
+  })
+```

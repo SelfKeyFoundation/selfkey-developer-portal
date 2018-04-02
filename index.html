@@ -1,6 +1,6 @@
 <html>
 	<head>
-		<title>Selfkey Login</title>
+		<title>Selfkey Developer Centre</title>
 
 		<link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
 		<link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet" integrity="sha384-wvfXpqpZZVQGK6TAh5PVlGOfQNHSoD2xbE+QkPxCAFlNEevoEH3Sl0sibVcOQVnN" crossorigin="anonymous">    
@@ -59,40 +59,32 @@
 					<hr>
 					<h3>selfkey.js</h3>
 					<br>
-					<a href="https://github.com/altninja/selfkey.js" class="btn btn-info btn-lg">
+					<a href="https://github.com/altninja/selfkey.js" class="btn btn-info btn-lg" target="_blank">
 						<i class="fa fa-github"></i>&nbsp;&nbsp;selfkey.js on Github
 					</a>
 					&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-					<a href="https://npm.com/~altninja/selfkey.js" class="btn btn-info btn-lg">
+					<a href="https://www.npmjs.com/package/selfkey.js" class="btn btn-info btn-lg" target="_blank">
 						<i class="fa fa-file-code-o"></i>&nbsp;&nbsp;selfkey.js on NPM
 					</a>
 					<br><br>
-					<p>We provide a JavaScript client library and a small code snippet which embeds the Login with SelfKey button on your website. All you need to do is supply the URL of an API endpoint that will receive the signed login request once the user approves the login.</p>
-					<h4>Here’s an example LWS client library snippet:</h4>
+					<p>SelfKey Javascript Library</p>
 					<pre class="prettyprint lang-js linenums">
 	
-	< script src="/scripts/lws-client.min.js" >< /script >
-	< script >
-	   window.lwsInit({
-	       endpoint: '/api/v1/auth/selfkey',
-	       stakedAccess: 1000,
-	       identityRequest: [
-	           'first_name',
-	           'last_name',
-	           'email'
-	       ]
-	   });
-	< /script >
+	verifySignature()
+	verifySignaturePromise()
+	signChallenge()
+	signChallengePromise()
+	nonce(arg)
 					</pre>
 					<hr>
 
 					<h3>Passport.js Integration</h3>
 										<br>
-					<a href="https://github.com/altninja/selfkey" class="btn btn-info btn-lg">
+					<a href="https://github.com/altninja/selfkey" class="btn btn-info btn-lg" target="_blank">
 						<i class="fa fa-github"></i>&nbsp;&nbsp;passport-selfkey on Github
 					</a>
 					&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-					<a href="https://npm.com/~altninja/passport-selfkey" class="btn btn-info btn-lg">
+					<a href="https://www.npmjs.com/package/passport-selfkey" class="btn btn-info btn-lg" target="_blank">
 						<i class="fa fa-file-code-o"></i>&nbsp;&nbsp;passport-selfkey on NPM
 					</a>
 					<br><br>

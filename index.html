@@ -25,9 +25,13 @@
 						
 	const 
 		express = require('express')
+		passport = require('passport')
 		router = express()
-		User = require('../models/user')
 		selfkey = require('selfkey.js')
+		infoRequest = {
+			integrator: 'BennyTrade',
+			requiredFields: '["first_name", "middle_name", "last_name", "email", "country_of_residency"]'
+		}
 
 	router.get('/auth/selfkey/new', (req, res) => {
 		const challenge = selfkey.newChallenge(256)

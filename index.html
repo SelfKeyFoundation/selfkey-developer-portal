@@ -29,48 +29,14 @@
 		User = require('../models/user')
 		selfkey = require('selfkey.js')
 
-	// blank endpoint to check connection is up
-	router.get('/auth/selfkey/init', (req, res) => res.status(200).json({message: 'BennyTrade API v2.0'}))
-
-	// get requested info
-	router.get('/auth/selfkey/info', (req, res) => res.status(200).json(infoRequest))
-
-	// begin the authentication process save blank user object with nonce return nonce for IDW signature
 	router.get('/auth/selfkey/new', (req, res) => {
-		const 
-			challenge = selfkey.newChallenge(256)
-			newUser = {
-				'selfkey.wallets': 
-					{
-						challenge: challenge, 
-						pubKey: req.query.pubKey
-					}	
-				}
-		User.create(newUser, err => {
-			err ? res.status(500).json({message: err}) : res.status(200).json({challenge: challenge})
-		})
+		const challenge = selfkey.newChallenge(256)
+		res.status(200).json({challenge: challenge, infoRequest: infoRequest})
 	})
 
-	// verify the signature against the challenge and public key
-	router.get('/auth/selfkey/verify', (req, res) => {
-		selfkey.verifySignaturePromise(req.query.challenge, req.query.signature, req.query.pubKey)
-			.then(verify => {
-				if (verify) {
-					User.update({'selfkey.wallets.pubKey': req.query.pubKey},{ 
-						'selfkey.wallets.$.first_name': req.query.first_name,
-						'selfkey.wallets.$.middle_name': req.query.middle_name,
-						'selfkey.wallets.$.last_name': req.query.last_name,
-						'selfkey.wallets.$.email': req.query.email,
-						'selfkey.wallets.$.country_of_residency': req.query.country_of_residency
-					}, (err, result) => {
-						if (!err) res.status(200).json({result: result, redirectUrl: process.env.SK_SUCCESS_URL})
-					})
-				}
-			})
-			.catch(e => res.status(e.status || 500).json({message: e}))
+	router.get('/auth/selfkey', passport.authenticate('selfkey', { failureRedirect: '/signup' }), (req, res) => {
+		res.redirect('/success')
 	})
-
-	module.exports = router
 					</pre>
 					<hr>
 					<h3>selfkey.js</h3>
@@ -90,7 +56,7 @@
 	verifySignaturePromise()
 	signChallenge()
 	signChallengePromise()
-	nonce(arg)
+	challenge(length)
 					</pre>
 					<hr>
 
@@ -114,78 +80,81 @@
 	 * Login with SelfKey Passport Config
 	 */
 	passport.use(new SelfKeyStrategy((req, challenge, signature, pubKey, done) => {
-		console.log(pubKey)
-		// check for an existing session
-		if (req.user) {
-			// query db for matching pubkey
-			User.findOne({'selfkey.wallets.pubKey': pubKey}, (err, existingUser) => {
-				if (err) { return done(err) }
-				// if a pubkey exists verify the signature
-				if (existingUser) {
-					var match = selfkey.verifySignature(challenge, signature, pubKey)
-					if (match) {
-						return done(null, existingUser)
-					}
-					return done(null, false, {msg: 'Invalid Credentials'})
-				} else {
-					// search by session user id
-					User.findById(req.user.id, (err, user) => {
-						if (err) { return done(err) }
-						User.update({'selfkey.wallets.pubKey': pubKey},{ 
-							'selfkey.wallets.$.first_name': req.query.first_name,
-							'selfkey.wallets.$.middle_name': req.query.middle_name,
-							'selfkey.wallets.$.last_name': req.query.last_name,
-							'selfkey.wallets.$.email': req.query.email,
-							'selfkey.wallets.$.country_of_residency': req.query.country_of_residency
-						}, (err, result) => {
-							req.flash('info', { msg: 'SelfKey ID has been linked.' })
-							done(err, user)
-						})		
-					})
-				}
-			})
-		} else {
-			// if no session exists
-			User.findOne({'selfkey.wallets.pubKey': pubKey}, (err, existingUser) => {
-				if (err) { return done(err) }
-				// check for matching user and verify signature and update user object
-				if (existingUser) {
-					var match = selfkey.verifySignature(challenge, signature, pubKey)
-					if (match) {
-						User.update({'selfkey.wallets.pubKey': pubKey},{ 
-							'selfkey.wallets.$.first_name': req.query.first_name,
-							'selfkey.wallets.$.middle_name': req.query.middle_name,
-							'selfkey.wallets.$.last_name': req.query.last_name,
-							'selfkey.wallets.$.email': req.query.email,
-							'selfkey.wallets.$.country_of_residency': req.query.country_of_residency
-						}, (err, result) => {
-							req.flash('info', { msg: 'SelfKey ID has been linked.' })
-							return done(null, existingUser)
-						})		
-					}			
-				} else {
-					// make a new user
-					const 
-						challenge = selfkey.newChallenge(256)
-						newUser = {
-							'selfkey.wallets': 
-								{
-									challenge: challenge, 
-									pubKey: pubKey,
-									first_name: req.query.first_name,
-									middle_name: req.query.middle_name,
-									last_name: req.query.last_name,
-									email: req.query.email,
-									country_of_residency: req.query.country_of_residency
-								}	
-							}
-					console.log(newUser)
-					User.create(newUser, err => {
-						done(err, user)
-					})
-				}
-			})
-		}
+	  // if the verification succeeds
+	  if (selfkey.verifySignature(challenge, signature, pubKey)) {
+	    // check if ession exists
+	    if (req.user) {
+	      // find user with existing wallet
+	      User.findOne({'selfkey.wallets.pubKey': pubKey}, (err, existingUser) => {
+	        if (err) { return done(err) }
+	        // if a wallet is found then  
+	        if (existingUser) {
+	            // handle UI message
+	            req.flash('info', { msg: 'Login with SelfKey ID successful' })
+	            // handle authentication
+	            return done(null, existingUser)       
+	        } else {
+	          // search by session user id
+	          User.findOne({_id: req.user.id}, (err, user) => {
+	            if (err) { return done(err) }
+	              // update existing user
+	              User.update({_id: req.user.id}, {
+	                $addToSet: {
+	                  'selfkey.wallets': {
+	                    pubKey: pubKey, 
+	                    first_name: req.query.first_name,
+	                    middle_name: req.query.middle_name,
+	                    last_name: req.query.last_name,
+	                    email: req.query.email || '',
+	                    country_of_residency: req.query.country_of_residency
+	                  }
+	                }
+	              }, (err, result) => {
+	                if (err) { return done(err) }
+	                User.findOne({_id: req.user.id}, (err, user) => {
+	                  if (err) { return done(err) }
+	                  req.flash('info', { msg: 'SelfKey ID has successfully been linked to your account' })
+	                  return done(err, user)
+	                })
+	              })  
+	          })
+	        }
+	      })
+	    // no session exists
+	    } else {
+	      // find user with existing wallet
+	      User.findOne({'selfkey.wallets.pubKey': pubKey}, (err, existingUser) => {
+	        if (err) { return done(err) }
+	        // if a wallet is found then verify the signature handle authentication
+	        if (existingUser) {
+	          req.flash('info', { msg: 'Login with SelfKey ID successful' })
+	          return done(null, existingUser)
+	        } else {
+	          // make a new user
+	          const newUser = {
+	              'selfkey.wallets': 
+	                {
+	                  pubKey: pubKey,
+	                  first_name: req.query.first_name,
+	                  middle_name: req.query.middle_name,
+	                  last_name: req.query.last_name,
+	                  email: req.query.email || '',
+	                  country_of_residency: req.query.country_of_residency
+	                } 
+	              }
+	          User.create(newUser, (err, user) => {
+	            if (err) { return done(err) }
+	            req.flash('info', { msg: 'New account with SelfKey ID has successfully been created' })
+	            return done(err, user)
+	          })
+	        }
+	      })
+	    }
+	  
+	  } else {
+	    // return error message if verification fails
+	    return done(null, false, {msg: 'Invalid Credentials'})
+	  }
 	}))
 
 	/**
@@ -205,62 +174,7 @@
 			<br><br>
 		</div>
 
-		<div class="modal fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
-		  <div class="modal-dialog text-center" role="document">
-		    <div class="modal-content">
-		      <div class="modal-header">
-		        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-		        <img src="img/logo.png">
-		        <h4 class="modal-title" id="myModalLabel">I D &nbsp;&nbsp; W A L L E T</h4>
-		      </div>
-		      <div class="modal-body">
-		      	
-		        <h2>Success!</h2>
-		        <h4>Installed the SelfKey ID Wallet</h4>
-		        <br>
-		        <br>
-		        <button type="button" class="btn btn-default btn-md" data-dismiss="modal">Dismiss</button>
-
-<!-- 		      <div class="modal-footer">
-		        <button type="button" class="btn btn-default btn-xs" data-dismiss="modal">Dismiss</button>
-		      </div> -->
-		    </div>
-		  </div>
-		</div>
-
 		<script src="https://code.jquery.com/jquery-1.12.4.min.js" integrity="sha256-ZosEbRLbNQzLpnKIkEdrPv7lOy9C27hHQ+Xp8a4MxAQ=" crossorigin="anonymous"></script>
 		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
 	</body>
 </html>
-
-#### Configure Strategy
-
-The Login with SelfKey strategy authenticates users using a nonce, signature and public key.  You will need to include the [selfkey.js library](https://github.com/altninja/selfkey.js) to perform the signature verification.  This strategy requires a `verify` callback, which accepts these credentials and calls `done` providing a user.
-
-```js
-const selfkey = require('selfkey.js')
-const SelfKeyStrategy = require('passport-selfkey').Strategy
-
-/**
- * Login with SelfKey Passport Config
- */
-passport.use(new SelfKeyStrategy((nonce, signature, pubKey, done) => {
-  User.findOne({nonce: nonce}, (err, user) => {
-    if (err) return done(err)
-    if (!user) return done(null, false, {msg: 'Nonce not found'})
-    var match = selfkey.verifySignature(nonce, signature, pubKey)
-    if (match) return done(null, user)
-    return done(null, false, {msg: 'Invalid Credentials'})
-  })
-}))
-```
-
-#### Authenticate Requests
-
-Use `passport.authenticate()`, specifying the `'selfkey'` strategy, to authenticate requests. For example, as route middleware in an [Express](http://expressjs.com/) application:
-
-```js
-  router.get('/auth/selfkey', passport.authenticate('selfkey', { failureRedirect: '/signup' }), (req, res) => {
-    res.redirect('/success')
-  })
-```

@@ -52,11 +52,11 @@
 					<p>SelfKey Javascript Library</p>
 					<pre class="prettyprint lang-js linenums">
 	
-	verifySignature()
-	verifySignaturePromise()
-	signChallenge()
-	signChallengePromise()
-	challenge(length)
+	newChallenge(length)
+	signChallenge(challenge, privKey)
+	signChallengePromise(challenge, privKey)
+	verifySignature(challenge, signature, pubKey)
+	verifySignaturePromise(challenge, signature, pubKey)
 					</pre>
 					<hr>
 
